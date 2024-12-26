@@ -11,4 +11,5 @@ version = "0.15"
 features = ["wayland"]
 
 [dependencies]
+avian2d = { version = "0.2" }
 rand = { version = "0.8.5" }
