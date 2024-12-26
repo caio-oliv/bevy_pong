@@ -1,12 +1,31 @@
+use core::time::Duration;
+
 use bevy::{
     asset::{Assets, Handle},
     ecs::{system::Resource, world::FromWorld},
-    math::primitives::Rectangle,
-    math::Vec2,
+    math::{primitives::Rectangle, Vec2},
     render::mesh::Mesh,
+    time::{Timer, TimerMode},
 };
 
 use crate::game::player::{PlayerSide, PlayerType, SecondPlayerType};
+
+#[derive(Resource)]
+pub struct StartMatchTimer(pub Timer);
+
+impl StartMatchTimer {
+    pub const SECONDS: u32 = 3;
+
+    pub fn default_timer() -> Timer {
+        Timer::new(Duration::from_secs(Self::SECONDS as u64), TimerMode::Once)
+    }
+}
+
+impl Default for StartMatchTimer {
+    fn default() -> Self {
+        Self(Self::default_timer())
+    }
+}
 
 #[derive(Clone, Default, Resource)]
 pub struct GameActiveData {

@@ -15,6 +15,7 @@ fn main() {
         ui::main_menu::plugin,
         game::plugin,
         ui::in_game::plugin,
+        ui::pause_menu::plugin,
     ));
 
     app.run();
@@ -26,6 +27,7 @@ fn app_plugin(app: &mut App) {
         ..Default::default()
     }));
 
+    // TODO: Run physics world only when the game is running.
     app.add_plugins(PhysicsPlugins::default().with_length_unit(PHYSICS_LENGTH_UNIT));
 
     #[cfg(debug_assertions)]

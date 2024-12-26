@@ -3,29 +3,52 @@ use bevy::prelude::*;
 use crate::game::{
     event::GameDataUpdated,
     player::PlayerSide,
-    resource::GameActiveData,
-    state::{GameActiveState, GameState, InGame},
+    resource::{GameActiveData, StartMatchTimer},
+    state::InGame,
 };
-use crate::ui::component::{button_node, button_text, screen_node};
-
-const BG_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.1);
 
 #[derive(Default, Component)]
 #[require(Node)]
-pub struct PauseMenu;
+pub struct GameOSD;
 
-#[derive(Default, Component)]
-#[require(Button)]
-pub struct ResumeGameButton;
-
-impl ResumeGameButton {
-    const TEXT: &str = "Resume";
-    const TEXT_COLOR: Color = Color::BLACK;
+impl GameOSD {
+    pub fn node() -> Node {
+        Node {
+            left: Val::ZERO,
+            right: Val::ZERO,
+            top: Val::ZERO,
+            bottom: Val::ZERO,
+            justify_self: JustifySelf::Center,
+            align_self: AlignSelf::Center,
+            display: Display::Flex,
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::FlexStart,
+            align_items: AlignItems::Stretch,
+            aspect_ratio: Some(16.0 / 9.0),
+            height: Val::Vh(100.0),
+            margin: UiRect::axes(Val::Auto, Val::ZERO),
+            ..Node::DEFAULT
+        }
+    }
 }
 
 #[derive(Default, Component)]
 #[require(Node)]
 pub struct GameScore;
+
+impl GameScore {
+    pub fn node() -> Node {
+        Node {
+            display: Display::Flex,
+            flex_direction: FlexDirection::Row,
+            justify_content: JustifyContent::SpaceBetween,
+            align_items: AlignItems::Center,
+            width: Val::Percent(100.0),
+            padding: UiRect::all(Val::Px(24.0)),
+            ..Node::DEFAULT
+        }
+    }
+}
 
 #[derive(Default, Component)]
 #[require(Text)]
@@ -46,51 +69,50 @@ impl PlayerScore {
     }
 }
 
-pub fn spawn_pause_menu(mut commands: Commands) {
-    commands
-        .spawn((PauseMenu, screen_node(), BackgroundColor(BG_COLOR)))
-        .with_children(|builder| {
-            builder
-                .spawn((ResumeGameButton, button_node()))
-                .with_child((
-                    Text::new(ResumeGameButton::TEXT),
-                    button_text(),
-                    TextColor(ResumeGameButton::TEXT_COLOR),
-                ));
-        });
-}
+#[derive(Default, Component)]
+#[require(Node)]
+pub struct StartMatchCountdown;
 
-pub fn despawn_pause_menu(query: Single<Entity, With<PauseMenu>>, mut commands: Commands) {
-    let entity = query.into_inner();
-    commands.entity(entity).despawn_recursive();
-}
-
-pub fn resume_game_button(
-    button: Single<&Interaction, (Changed<Interaction>, With<ResumeGameButton>)>,
-    mut next_game_state: ResMut<NextState<GameState>>,
-) {
-    let interaction = button.into_inner();
-
-    if *interaction == Interaction::Pressed {
-        next_game_state.set(GameState::GameActive { playing: true });
+impl StartMatchCountdown {
+    pub fn node() -> Node {
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::ZERO,
+            right: Val::ZERO,
+            top: Val::ZERO,
+            bottom: Val::ZERO,
+            display: Display::Flex,
+            flex_direction: FlexDirection::Row,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            width: Val::Auto,
+            padding: UiRect::bottom(Val::Px(96.0)),
+            ..Node::DEFAULT
+        }
     }
 }
 
-pub fn spawn_game_score(mut commands: Commands) {
+#[derive(Default, Component)]
+#[require(Text)]
+pub struct StartMatchCountdownText;
+
+pub fn spawn_osd(mut commands: Commands) {
     commands
-        .spawn((
-            GameScore,
-            Node {
-                top: Val::ZERO,
-                display: Display::Flex,
-                flex_direction: FlexDirection::Row,
-                justify_content: JustifyContent::SpaceBetween,
-                align_items: AlignItems::Center,
-                width: Val::Percent(100.0),
-                padding: UiRect::all(Val::Px(24.0)),
-                ..default()
-            },
-        ))
+        .spawn((GameOSD, GameOSD::node()))
+        .with_children(|builder| {
+            build_game_score(builder);
+            build_start_match_countdown(builder);
+        });
+}
+
+pub fn despawn_osd(osd: Single<Entity, With<GameOSD>>, mut commands: Commands) {
+    let entity = osd.into_inner();
+    commands.entity(entity).despawn_recursive();
+}
+
+pub fn build_game_score(builder: &mut ChildBuilder<'_>) {
+    builder
+        .spawn((GameScore, GameScore::node()))
         .with_children(|builder| {
             builder.spawn((
                 PlayerScore::new_main(),
@@ -111,11 +133,6 @@ pub fn spawn_game_score(mut commands: Commands) {
         });
 }
 
-pub fn despawn_game_score(query: Single<Entity, With<GameScore>>, mut commands: Commands) {
-    let entity = query.into_inner();
-    commands.entity(entity).despawn_recursive();
-}
-
 pub fn update_game_score(
     mut score_text: Query<(&mut Text, &PlayerScore)>,
     game_data: Res<GameActiveData>,
@@ -132,12 +149,38 @@ pub fn update_game_score(
     }
 }
 
-pub fn plugin(app: &mut App) {
-    app.add_systems(OnEnter(InGame), spawn_game_score);
-    app.add_systems(OnExit(InGame), despawn_game_score);
+pub fn build_start_match_countdown(builder: &mut ChildBuilder<'_>) {
+    builder
+        .spawn((StartMatchCountdown, StartMatchCountdown::node()))
+        .with_child((
+            StartMatchCountdownText,
+            Text::new(String::new()),
+            TextFont {
+                font_size: 64.0,
+                ..default()
+            },
+        ));
+}
 
-    app.add_systems(OnEnter(GameActiveState::Pause), spawn_pause_menu);
-    app.add_systems(OnExit(GameActiveState::Pause), despawn_pause_menu);
+pub fn update_start_match_countdown(
+    countdown_text: Single<&mut Text, With<StartMatchCountdownText>>,
+    timer: Res<StartMatchTimer>,
+) {
+    let mut text = countdown_text.into_inner();
+    let num: u32 = timer.0.elapsed_secs().trunc() as u32;
+    text.0 = (StartMatchTimer::SECONDS - num).to_string();
+}
+
+pub fn hide_start_match_countdown(
+    countdown_text: Single<&mut Text, With<StartMatchCountdownText>>,
+) {
+    let mut text = countdown_text.into_inner();
+    text.0 = String::new();
+}
+
+pub fn plugin(app: &mut App) {
+    app.add_systems(OnEnter(InGame), spawn_osd);
+    app.add_systems(OnExit(InGame), despawn_osd);
 
     app.add_systems(
         Update,
@@ -145,6 +188,10 @@ pub fn plugin(app: &mut App) {
     );
     app.add_systems(
         Update,
-        resume_game_button.run_if(in_state(GameActiveState::Pause)),
+        update_start_match_countdown.run_if(resource_exists::<StartMatchTimer>),
+    );
+    app.add_systems(
+        Update,
+        hide_start_match_countdown.run_if(resource_removed::<StartMatchTimer>),
     );
 }

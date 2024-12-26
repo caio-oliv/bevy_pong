@@ -123,9 +123,10 @@ pub fn plugin(app: &mut App) {
     app.init_resource::<SecondPlayer>();
 
     app.add_systems(OnEnter(GameState::MainMenu), spawn_main_menu);
+    app.add_systems(OnExit(GameState::MainMenu), despawn_main_menu);
+
     app.add_systems(
         Update,
         (change_player_button, play_button).run_if(in_state(GameState::MainMenu)),
     );
-    app.add_systems(OnExit(GameState::MainMenu), despawn_main_menu);
 }

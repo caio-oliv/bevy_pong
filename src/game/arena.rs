@@ -175,24 +175,11 @@ impl Ball {
         Transform::from_xyz(0.0, 0.0, Self::Z_INDEX).with_scale(Vec3::new(2.0, 2.0, 1.0))
     }
 
-    pub fn reset_initial_movement(
-        transform: &mut Transform,
-        velocity: &mut LinearVelocity,
-        visibility: &mut Visibility,
-        direction: ArenaDirection,
-    ) {
-        transform.translation = Vec3::ZERO;
-        *visibility = Visibility::Visible;
-        velocity.0 = Self::random_linear_velocity(direction);
-    }
-
     pub fn reset_initial_stationary_position(
         transform: &mut Transform,
         velocity: &mut LinearVelocity,
-        visibility: &mut Visibility,
     ) {
         transform.translation = Vec3::ZERO;
         velocity.0 = Vec2::ZERO;
-        *visibility = Visibility::Hidden;
     }
 }

@@ -56,6 +56,7 @@ pub enum PlayerSide {
 }
 
 impl PlayerSide {
+    #[expect(unused)]
     pub const fn arena_direction(&self) -> ArenaDirection {
         match *self {
             Self::Main => ArenaDirection::Left,
