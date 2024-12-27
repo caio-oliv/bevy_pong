@@ -30,8 +30,8 @@ fn app_plugin(app: &mut App) {
     // TODO: Run physics world only when the game is running.
     app.add_plugins(PhysicsPlugins::default().with_length_unit(PHYSICS_LENGTH_UNIT));
 
-    #[cfg(debug_assertions)]
-    app.add_plugins(debug_plugin);
+    #[cfg(feature = "devtools")]
+    app.add_plugins(devtools_plugin);
 
     app.insert_resource(ClearColor(Color::BLACK));
     app.insert_resource(Gravity(Vec2::ZERO));
@@ -39,8 +39,8 @@ fn app_plugin(app: &mut App) {
     app.add_systems(Startup, spawn_camera);
 }
 
-#[cfg(debug_assertions)]
-pub fn debug_plugin(app: &mut App) {
+#[cfg(feature = "devtools")]
+pub fn devtools_plugin(app: &mut App) {
     use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
     app.add_plugins((FrameTimeDiagnosticsPlugin, PhysicsDebugPlugin::default()));
 }
