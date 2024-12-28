@@ -5,14 +5,7 @@ use crate::game::{
     resource::SecondPlayer,
     state::{GameActiveState, GameState, InGame},
 };
-
-use super::component::{button_node, button_text};
-
-const SCREEN_MARGIN: Val = Val::Px(16.0);
-const PLAY_BUTTON_BG_COLOR: Color = Color::WHITE;
-const PLAY_BUTTON_TEXT_COLOR: Color = Color::BLACK;
-const CHANGE_PLAYER_BUTTON_BG_COLOR: Color = Color::WHITE;
-const CHANGE_PLAYER_TEXT_COLOR: Color = Color::BLACK;
+use crate::ui::component::{button, screen};
 
 #[derive(Default, Component)]
 #[require(Node)]
@@ -38,46 +31,70 @@ impl ChangePlayerButton {
     }
 }
 
-pub fn spawn_main_menu(mut commands: Commands, opponent: Res<SecondPlayer>) {
+#[derive(Default, Component)]
+#[require(Button)]
+pub struct ExitGameButton;
+
+impl ExitGameButton {
+    const TEXT: &str = "Exit";
+
+    fn node() -> Node {
+        let mut node = button::node();
+        node.margin.top = Val::Px(32.0);
+        node
+    }
+}
+
+pub fn spawn_main_menu(mut commands: Commands, second_player: Res<SecondPlayer>) {
     commands
-        .spawn((
-            MainMenu,
-            Node {
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                padding: UiRect::all(SCREEN_MARGIN),
-                row_gap: Val::Px(8.0),
-                ..default()
-            },
-            BackgroundColor(Color::BLACK.with_alpha(0.3)),
-        ))
+        .spawn((MainMenu, screen::node(), BackgroundColor(screen::BG_COLOR)))
         .with_children(|builder| {
-            builder
-                .spawn((
-                    PlayButton,
-                    button_node(),
-                    BackgroundColor(PLAY_BUTTON_BG_COLOR),
-                ))
-                .with_child((
-                    Text::new("Play"),
-                    button_text(),
-                    TextColor(PLAY_BUTTON_TEXT_COLOR),
-                ));
-            builder
-                .spawn((
-                    ChangePlayerButton,
-                    button_node(),
-                    BackgroundColor(CHANGE_PLAYER_BUTTON_BG_COLOR),
-                ))
-                .with_child((
-                    Text::new(ChangePlayerButton::get_text(opponent.opponent)),
-                    button_text(),
-                    TextColor(CHANGE_PLAYER_TEXT_COLOR),
-                ));
+            build_play_button(builder);
+            build_change_player_button(builder, &second_player);
+            build_exit_game_button(builder);
         });
+}
+
+pub fn build_play_button(builder: &mut ChildBuilder<'_>) {
+    builder
+        .spawn((
+            PlayButton,
+            button::node(),
+            BackgroundColor(button::BG_COLOR),
+        ))
+        .with_child((
+            Text::new("Play"),
+            button::text_font(),
+            TextColor(button::TEXT_COLOR),
+        ));
+}
+
+pub fn build_change_player_button(builder: &mut ChildBuilder<'_>, second_player: &SecondPlayer) {
+    builder
+        .spawn((
+            ChangePlayerButton,
+            button::node(),
+            BackgroundColor(button::BG_COLOR),
+        ))
+        .with_child((
+            Text::new(ChangePlayerButton::get_text(second_player.opponent)),
+            button::text_font(),
+            TextColor(button::TEXT_COLOR),
+        ));
+}
+
+pub fn build_exit_game_button(builder: &mut ChildBuilder<'_>) {
+    builder
+        .spawn((
+            ExitGameButton,
+            ExitGameButton::node(),
+            BackgroundColor(button::BG_COLOR),
+        ))
+        .with_child((
+            Text::new(ExitGameButton::TEXT),
+            button::text_font(),
+            TextColor(button::TEXT_COLOR),
+        ));
 }
 
 pub fn despawn_main_menu(query: Single<Entity, With<MainMenu>>, mut commands: Commands) {
@@ -115,6 +132,17 @@ pub fn play_button(
     }
 }
 
+pub fn exit_game_button(
+    button: Single<&Interaction, (Changed<Interaction>, With<ExitGameButton>)>,
+    mut app_exit_events: EventWriter<AppExit>,
+) {
+    let interaction = button.into_inner();
+
+    if *interaction == Interaction::Pressed {
+        app_exit_events.send(AppExit::Success);
+    }
+}
+
 pub fn plugin(app: &mut App) {
     app.init_state::<GameState>();
     app.add_computed_state::<GameActiveState>();
@@ -127,6 +155,6 @@ pub fn plugin(app: &mut App) {
 
     app.add_systems(
         Update,
-        (change_player_button, play_button).run_if(in_state(GameState::MainMenu)),
+        (change_player_button, play_button, exit_game_button).run_if(in_state(GameState::MainMenu)),
     );
 }

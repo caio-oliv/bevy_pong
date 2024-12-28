@@ -1,9 +1,7 @@
 use bevy::prelude::*;
 
 use crate::game::state::{GameActiveState, GameState, InGame};
-use crate::ui::component::{button_node, button_text, screen_node};
-
-const BG_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.1);
+use crate::ui::component::{button, screen};
 
 #[derive(Default, Component)]
 #[require(Node)]
@@ -15,7 +13,6 @@ pub struct ResumeGameButton;
 
 impl ResumeGameButton {
     const TEXT: &str = "Resume";
-    const TEXT_COLOR: Color = Color::BLACK;
 }
 
 #[derive(Default, Component)]
@@ -23,9 +20,7 @@ impl ResumeGameButton {
 pub struct ExitToMainMenuButton;
 
 impl ExitToMainMenuButton {
-    const BG_COLOR: Color = Color::WHITE;
     const TEXT: &str = "Exit to main menu";
-    const TEXT_COLOR: Color = Color::BLACK;
 }
 
 pub fn toggle_game_pause(
@@ -45,29 +40,29 @@ pub fn toggle_game_pause(
 
 pub fn spawn_pause_menu(mut commands: Commands) {
     commands
-        .spawn((PauseMenu, screen_node(), BackgroundColor(BG_COLOR)))
+        .spawn((PauseMenu, screen::node(), BackgroundColor(screen::BG_COLOR)))
         .with_children(|builder| {
             builder
                 .spawn((
                     ResumeGameButton,
-                    button_node(),
-                    BackgroundColor(Color::WHITE),
+                    button::node(),
+                    BackgroundColor(button::BG_COLOR),
                 ))
                 .with_child((
                     Text::new(ResumeGameButton::TEXT),
-                    button_text(),
-                    TextColor(ResumeGameButton::TEXT_COLOR),
+                    button::text_font(),
+                    TextColor(button::TEXT_COLOR),
                 ));
             builder
                 .spawn((
                     ExitToMainMenuButton,
-                    button_node(),
-                    BackgroundColor(ExitToMainMenuButton::BG_COLOR),
+                    button::node(),
+                    BackgroundColor(button::BG_COLOR),
                 ))
                 .with_child((
                     Text::new(ExitToMainMenuButton::TEXT),
-                    button_text(),
-                    TextColor(ExitToMainMenuButton::TEXT_COLOR),
+                    button::text_font(),
+                    TextColor(button::TEXT_COLOR),
                 ));
         });
 }
