@@ -1,10 +1,11 @@
-use avian2d::prelude::*;
+use bevy::math::bounding::Aabb2d;
 use bevy::prelude::*;
 use rand::Rng;
 
 use super::{
     arena::{Arena, ArenaDirection, Ball, Paddle, Wall},
     event::{GameDataUpdated, PointMarked},
+    physics::{ball_collision, resolve_ball_collision, Collider, LinearVelocity},
     player::{Player, PlayerSide, PlayerType},
     resource::{CommonMesh, GameActiveData, SecondPlayer, StartMatchTimer},
 };
@@ -20,28 +21,26 @@ pub fn spawn_arena(
 ) {
     let material = materials.add(Arena::COLOR);
 
-    commands
-        .spawn((Arena, RigidBody::Static))
-        .with_children(|children| {
-            children.spawn((
-                Wall::Top,
-                Mesh2d(app_meshs.quad()),
-                MeshMaterial2d(material.clone()),
-                Wall::collider(),
-                Wall::top_transform(),
-            ));
-            children.spawn((
-                Wall::Bottom,
-                Mesh2d(app_meshs.quad()),
-                MeshMaterial2d(material),
-                Wall::collider(),
-                Wall::bottom_transform(),
-            ));
-        });
+    commands.spawn(Arena).with_children(|children| {
+        children.spawn((
+            Wall::Top,
+            Mesh2d(app_meshs.quad()),
+            MeshMaterial2d(material.clone()),
+            Collider,
+            Wall::top_transform(),
+        ));
+        children.spawn((
+            Wall::Bottom,
+            Mesh2d(app_meshs.quad()),
+            MeshMaterial2d(material),
+            Collider,
+            Wall::bottom_transform(),
+        ));
+    });
 }
 
-pub fn despawn_arena(entity: Single<Entity, With<Arena>>, mut commands: Commands) {
-    let entity = entity.into_inner();
+pub fn despawn_arena(arena: Single<Entity, With<Arena>>, mut commands: Commands) {
+    let entity = arena.into_inner();
     commands.entity(entity).despawn_recursive();
 }
 
@@ -57,8 +56,7 @@ pub fn spawn_players(
         Paddle::default(),
         Mesh2d(app_meshs.quad()),
         MeshMaterial2d(material.clone()),
-        RigidBody::Kinematic,
-        Paddle::collider(),
+        Collider,
         Paddle::new_main_transform(),
     ));
     commands.spawn((
@@ -66,14 +64,13 @@ pub fn spawn_players(
         Paddle::default(),
         Mesh2d(app_meshs.quad()),
         MeshMaterial2d(material),
-        RigidBody::Kinematic,
-        Paddle::collider(),
+        Collider,
         Paddle::new_second_transform(),
     ));
 }
 
-pub fn despawn_players(entities: Query<Entity, With<Player>>, mut commands: Commands) {
-    for entity in &entities {
+pub fn despawn_players(players: Query<Entity, With<Player>>, mut commands: Commands) {
+    for entity in &players {
         commands.entity(entity).despawn();
     }
 }
@@ -91,27 +88,13 @@ pub fn spawn_ball(
         Ball,
         Mesh2d(mesh),
         MeshMaterial2d(material),
-        RigidBody::Dynamic,
-        Ball::collider(),
-        LockedAxes::ROTATION_LOCKED,
         LinearVelocity(Vec2::ZERO),
-        MaxLinearSpeed(Ball::MAX_SPEED),
-        Friction {
-            dynamic_coefficient: 0.0,
-            static_coefficient: 0.0,
-            combine_rule: CoefficientCombine::Min,
-        },
-        Restitution {
-            // Extra 5% velocity on each collision
-            coefficient: 1.05,
-            combine_rule: CoefficientCombine::Max,
-        },
         Ball::initial_transform(),
     ));
 }
 
-pub fn despawn_ball(entity: Single<Entity, With<Ball>>, mut commands: Commands) {
-    let entity = entity.into_inner();
+pub fn despawn_ball(ball: Single<Entity, With<Ball>>, mut commands: Commands) {
+    let entity = ball.into_inner();
     commands.entity(entity).despawn();
 }
 
@@ -162,47 +145,64 @@ pub fn move_paddle(
     }
 }
 
-// TODO: apply a random Y direction when the ball bounces in the paddle.
+pub fn move_ball(
+    ball: Single<(&mut Transform, &mut LinearVelocity), With<Ball>>,
+    colliders: Query<&Transform, (With<Collider>, Without<Ball>)>,
+    time: Res<Time<Fixed>>,
+) {
+    let (mut transform, mut velocity) = ball.into_inner();
 
-/// Prevents the ball from bouncing up and down indefinitely.
-pub fn fix_ball_up_and_down_movement(mut balls: Query<&mut LinearVelocity, With<Ball>>) {
-    for mut velocity in &mut balls {
-        // Y velocity must not be greater than X, or else the ball
-        // will start bouncing up and down, and neither of the players
-        // will be able to touch the ball again.
-        if velocity.y.abs() >= velocity.x.abs() {
-            velocity.y *= 0.9; // decrease Y by 10%
-            velocity.x *= 1.1; // increase X by 10%
-        }
+    // TODO: increase ball velocity over time
+    transform.translation += velocity.0.extend(0.0) * time.delta_secs();
+
+    let bounding_ball = Ball::bounding_circle(&transform);
+
+    for collider in &colliders {
+        // TODO: apply a random Y direction when the ball bounces in the paddle.
+
+        let bounding_box = Aabb2d::new(
+            collider.translation.truncate(),
+            collider.scale.truncate() * 0.5,
+        );
+
+        let collision = match ball_collision(bounding_ball, bounding_box) {
+            None => continue,
+            Some(collision) => collision,
+        };
+
+        resolve_ball_collision(collision, &mut velocity);
     }
+
+    Ball::correct_trajectory(&mut velocity);
+    Ball::limit_velocity(&mut velocity);
 }
 
 pub fn check_ball_leaved_arena(
-    mut balls: Query<(&mut Transform, &mut LinearVelocity), With<Ball>>,
+    ball: Single<(&mut Transform, &mut LinearVelocity), With<Ball>>,
     mut point_event: EventWriter<PointMarked>,
 ) {
-    for (mut transform, mut velocity) in &mut balls {
-        if Arena::SIZE.x / 2.0 - Wall::THICKNESS <= transform.translation.x.abs() {
-            let winner_side = if transform.translation.x < 0.0 {
-                // Ball left, point goes to player other
-                PlayerSide::Other
-            } else {
-                // Ball right, point goes to player main
-                PlayerSide::Main
-            };
+    let (mut transform, mut velocity) = ball.into_inner();
 
-            point_event.send(PointMarked::new(winner_side));
+    if Arena::SIZE.x / 2.0 - Wall::THICKNESS <= transform.translation.x.abs() {
+        let winner_side = if transform.translation.x < 0.0 {
+            // Ball left, point goes to player other
+            PlayerSide::Other
+        } else {
+            // Ball right, point goes to player main
+            PlayerSide::Main
+        };
 
-            Ball::reset_initial_stationary_position(&mut transform, &mut velocity);
-        }
+        point_event.send(PointMarked::new(winner_side));
+
+        Ball::reset_initial_stationary_position(&mut transform, &mut velocity);
     }
 }
 
 pub fn reset_ball_after_point(
-    balls: Single<(&mut Transform, &mut LinearVelocity), With<Ball>>,
+    ball: Single<(&mut Transform, &mut LinearVelocity), With<Ball>>,
     mut point_event: EventReader<PointMarked>,
 ) {
-    let (mut transform, mut velocity) = balls.into_inner();
+    let (mut transform, mut velocity) = ball.into_inner();
 
     for _ in point_event.read() {
         Ball::reset_initial_stationary_position(&mut transform, &mut velocity);

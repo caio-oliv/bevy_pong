@@ -1,9 +1,10 @@
-use avian2d::prelude::*;
-use bevy::prelude::*;
+use bevy::{math::bounding::BoundingCircle, prelude::*};
 use rand::{
     distributions::{Distribution, Standard},
     Rng,
 };
+
+use super::physics::LinearVelocity;
 
 #[derive(Default, Component)]
 #[require(Transform, Visibility)]
@@ -54,10 +55,6 @@ pub enum Wall {
 impl Wall {
     pub const THICKNESS: f32 = 2.0;
 
-    pub fn collider() -> Collider {
-        Collider::rectangle(1.0, 1.0)
-    }
-
     pub const fn top_transform() -> Transform {
         Transform::from_xyz(0.0, Arena::SIZE.y / 2.0, 0.0).with_scale(Vec3::new(
             Arena::SIZE.x + Self::THICKNESS,
@@ -98,10 +95,6 @@ impl Paddle {
     pub const DEFAULT_VELOCITY: f32 = 30.0;
 
     pub const COLOR: Color = Color::WHITE;
-
-    pub fn collider() -> Collider {
-        Collider::rectangle(1.0, 1.0)
-    }
 
     pub fn new_main_transform() -> Transform {
         Transform::from_xyz(
@@ -153,8 +146,8 @@ impl Ball {
         Circle::new(Self::RADIUS)
     }
 
-    pub fn collider() -> Collider {
-        Collider::circle(Self::RADIUS)
+    pub fn bounding_circle(transform: &Transform) -> BoundingCircle {
+        BoundingCircle::new(transform.translation.truncate(), Ball::RADIUS)
     }
 
     pub const fn start_velocity_x(direction: ArenaDirection) -> f32 {
@@ -169,6 +162,22 @@ impl Ball {
             Self::start_velocity_x(direction),
             rand::thread_rng().gen_range(-1.0..1.0) * Ball::START_VELOCITY * 0.5,
         )
+    }
+
+    pub fn limit_velocity(velocity: &mut LinearVelocity) {
+        velocity.0.x = velocity.0.x.clamp(-Ball::MAX_SPEED, Ball::MAX_SPEED);
+        velocity.0.y = velocity.0.y.clamp(-Ball::MAX_SPEED, Ball::MAX_SPEED);
+    }
+
+    /// Prevents the ball from bouncing up and down indefinitely.
+    pub fn correct_trajectory(velocity: &mut LinearVelocity) {
+        // Y velocity must not be greater than X, or else the ball
+        // will start bouncing up and down, and neither of the players
+        // will be able to touch the ball again.
+        if velocity.y.abs() * 1.20 >= velocity.x.abs() {
+            velocity.y *= 0.9; // decrease Y by 10%
+            velocity.x *= 1.1; // increase X by 10%
+        }
     }
 
     pub const fn initial_transform() -> Transform {

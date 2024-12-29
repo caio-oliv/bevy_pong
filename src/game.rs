@@ -6,6 +6,7 @@ use state::{GameActiveState, InGame};
 
 pub mod arena;
 pub mod event;
+pub mod physics;
 pub mod player;
 pub mod resource;
 pub mod state;
@@ -43,15 +44,12 @@ pub fn plugin(app: &mut App) {
 
     app.add_systems(
         FixedUpdate,
-        (check_ball_leaved_arena, move_paddle).run_if(in_state(GameActiveState::Playing)),
+        (check_ball_leaved_arena, move_paddle, move_ball)
+            .run_if(in_state(GameActiveState::Playing)),
     );
     app.add_systems(
         FixedUpdate,
         (reset_ball_after_point, register_score_point, init_match)
             .run_if(in_state(GameActiveState::Playing).and(on_event::<PointMarked>)),
-    );
-    app.add_systems(
-        FixedLast,
-        fix_ball_up_and_down_movement.run_if(in_state(GameActiveState::Playing)),
     );
 }

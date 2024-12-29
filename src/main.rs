@@ -1,7 +1,6 @@
-use avian2d::prelude::*;
 use bevy::prelude::*;
 
-use settings::{camera::default_orthographic_projection, scale::PHYSICS_LENGTH_UNIT};
+use settings::camera::default_orthographic_projection;
 
 mod game;
 mod settings;
@@ -27,14 +26,10 @@ fn app_plugin(app: &mut App) {
         ..Default::default()
     }));
 
-    // TODO: Run physics world only when the game is running.
-    app.add_plugins(PhysicsPlugins::default().with_length_unit(PHYSICS_LENGTH_UNIT));
-
     #[cfg(feature = "devtools")]
     app.add_plugins(devtools_plugin);
 
     app.insert_resource(ClearColor(Color::BLACK));
-    app.insert_resource(Gravity(Vec2::ZERO));
 
     app.add_systems(Startup, spawn_camera);
 }
@@ -42,7 +37,8 @@ fn app_plugin(app: &mut App) {
 #[cfg(feature = "devtools")]
 pub fn devtools_plugin(app: &mut App) {
     use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
-    app.add_plugins((FrameTimeDiagnosticsPlugin, PhysicsDebugPlugin::default()));
+
+    app.add_plugins(FrameTimeDiagnosticsPlugin);
 }
 
 pub fn spawn_camera(mut commands: Commands) {

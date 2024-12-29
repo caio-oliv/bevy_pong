@@ -8,12 +8,7 @@ opt-level = 3
 
 [features]
 default = ["devtools"]
-devtools = [
-	"avian2d/debug-plugin",
-	"bevy/sysinfo_plugin",
-	"bevy/bevy_dev_tools",
-	"bevy/bevy_remote",
-]
+devtools = ["bevy/sysinfo_plugin", "bevy/bevy_dev_tools", "bevy/bevy_remote"]
 
 [dependencies.bevy]
 version = "0.15"
@@ -36,11 +31,4 @@ features = [
 ]
 
 [dependencies]
-avian2d = { version = "0.2", default-features = false, features = [
-	"2d",
-	"f32",
-	"simd",
-	"default-collider",
-	"parry-f32",
-] }
 rand = { version = "0.8.5" }
