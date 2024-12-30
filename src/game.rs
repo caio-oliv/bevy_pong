@@ -51,7 +51,7 @@ pub fn plugin(app: &mut App) {
     );
     app.add_systems(
         FixedUpdate,
-        (reset_ball_after_point, register_score_point, init_match)
+        (register_score_point, init_match)
             .chain()
             .run_if(in_state(GameActiveState::Playing).and(on_event::<PointMarked>)),
     );

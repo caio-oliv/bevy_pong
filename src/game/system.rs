@@ -203,17 +203,6 @@ pub fn check_ball_leaved_arena(
     }
 }
 
-pub fn reset_ball_after_point(
-    ball: Single<(&mut Transform, &mut LinearVelocity), With<Ball>>,
-    mut point_event: EventReader<PointMarked>,
-) {
-    let (mut transform, mut velocity) = ball.into_inner();
-
-    for _ in point_event.read() {
-        Ball::reset_initial_stationary_position(&mut transform, &mut velocity);
-    }
-}
-
 pub fn register_score_point(
     second_player: Res<SecondPlayer>,
     mut game_data: ResMut<GameActiveData>,
