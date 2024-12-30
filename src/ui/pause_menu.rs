@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::game::resource::UserGamepad;
 use crate::game::state::{GameActiveState, GameState, InGame};
 use crate::ui::component::{button, screen};
 
@@ -24,11 +25,19 @@ impl ExitToMainMenuButton {
 }
 
 pub fn toggle_game_pause(
-    input: Res<ButtonInput<KeyCode>>,
+    gamepads: Query<&Gamepad>,
+    user_gamepad: Res<UserGamepad>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     game_state: Res<State<GameState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
 ) {
-    if input.just_pressed(KeyCode::Escape) {
+    let gamepad = user_gamepad
+        .get_main()
+        .and_then(|entity| gamepads.get(entity).ok());
+
+    if keyboard.just_pressed(KeyCode::Escape)
+        || gamepad.is_some_and(|gpad| gpad.just_pressed(GamepadButton::Start))
+    {
         match game_state.get() {
             GameState::MainMenu => {}
             GameState::GameActive { playing } => {

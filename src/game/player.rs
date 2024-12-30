@@ -4,7 +4,10 @@ use core::fmt;
 
 use crate::{
     game::arena::{ArenaDirection, Paddle},
-    settings::input::{PlayerInputSettings, MAIN_PLAYER, SECOND_PLAYER},
+    settings::input::{
+        GamepadInputSettings, KeyboardInputSettings, GAMEPAD_SETTINGS, MAIN_PLAYER_KEYBOARD,
+        SECOND_PLAYER_KEYBOARD,
+    },
 };
 
 /// All players of the game
@@ -108,10 +111,18 @@ impl Player {
         }
     }
 
-    pub const fn input_settings(&self) -> PlayerInputSettings {
+    pub const fn keyboard_input(&self) -> KeyboardInputSettings {
         match self.kind {
-            PlayerSide::Main => MAIN_PLAYER,
-            PlayerSide::Other => SECOND_PLAYER,
+            PlayerSide::Main => MAIN_PLAYER_KEYBOARD,
+            PlayerSide::Other => SECOND_PLAYER_KEYBOARD,
         }
+    }
+
+    pub const fn gamepad_input(&self) -> GamepadInputSettings {
+        GAMEPAD_SETTINGS
+    }
+
+    pub const fn get_side(&self) -> PlayerSide {
+        self.kind
     }
 }

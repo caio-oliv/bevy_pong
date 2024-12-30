@@ -2,13 +2,88 @@ use core::time::Duration;
 
 use bevy::{
     asset::{Assets, Handle},
-    ecs::{system::Resource, world::FromWorld},
+    ecs::{entity::Entity, system::Resource, world::FromWorld},
     math::{primitives::Rectangle, Vec2},
     render::mesh::Mesh,
     time::{Timer, TimerMode},
 };
 
-use crate::game::player::{PlayerSide, PlayerType, SecondPlayerType};
+use crate::game::player::{Player, PlayerSide, PlayerType, SecondPlayerType};
+
+#[derive(Clone, PartialEq, Eq, Default, Resource)]
+pub struct UserGamepad {
+    main: Option<Entity>,
+    second: Option<Entity>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+pub enum ActiveGamepad {
+    #[default]
+    Main = 1,
+    Second = 2,
+}
+
+impl UserGamepad {
+    pub const fn add_gamepad(&mut self, gamepad: Entity) -> Option<ActiveGamepad> {
+        if self.main.is_none() {
+            self.main = Some(gamepad);
+
+            Some(ActiveGamepad::Main)
+        } else if self.second.is_none() {
+            self.second = Some(gamepad);
+
+            Some(ActiveGamepad::Second)
+        } else {
+            None
+        }
+    }
+
+    pub fn remove_gamepad(&mut self, gamepad: Entity) -> Option<ActiveGamepad> {
+        if self.main.is_some_and(|ent| ent == gamepad) {
+            self.main = None;
+
+            let removed = if self.try_move_second_to_main() {
+                ActiveGamepad::Second
+            } else {
+                ActiveGamepad::Main
+            };
+
+            Some(removed)
+        } else if self.second.is_some_and(|ent| ent == gamepad) {
+            self.second = Some(gamepad);
+
+            Some(ActiveGamepad::Second)
+        } else {
+            None
+        }
+    }
+
+    fn try_move_second_to_main(&mut self) -> bool {
+        if self.second.is_some() {
+            self.main = self.second;
+            self.second = None;
+
+            true
+        } else {
+            false
+        }
+    }
+
+    pub const fn get_main(&self) -> Option<Entity> {
+        self.main
+    }
+
+    pub const fn get_second(&self) -> Option<Entity> {
+        self.second
+    }
+
+    pub const fn get_by_player(&self, player: &Player) -> Option<Entity> {
+        match player.get_side() {
+            PlayerSide::Main => self.get_main(),
+            PlayerSide::Other => self.get_second(),
+        }
+    }
+}
 
 #[derive(Resource)]
 pub struct StartMatchTimer(pub Timer);

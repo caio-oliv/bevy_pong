@@ -7,7 +7,7 @@ use super::{
     event::{GameDataUpdated, PointMarked},
     physics::{ball_collision, resolve_ball_collision, Collider, LinearVelocity},
     player::{Player, PlayerSide, PlayerType},
-    resource::{CommonMesh, GameActiveData, SecondPlayer, StartMatchTimer},
+    resource::{CommonMesh, GameActiveData, SecondPlayer, StartMatchTimer, UserGamepad},
 };
 
 pub fn reset_game_data(mut game_data: ResMut<GameActiveData>) {
@@ -126,14 +126,24 @@ pub fn start_match(
 
 pub fn move_paddle(
     mut paddles: Query<(&mut Transform, &Player), With<Paddle>>,
-    input: Res<ButtonInput<KeyCode>>,
+    gamepads: Query<&Gamepad>,
+    user_gamepad: Res<UserGamepad>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time<Fixed>>,
 ) {
     for (mut transform, player) in &mut paddles {
-        if input.pressed(player.input_settings().move_paddle_up) {
+        let gamepad = user_gamepad
+            .get_by_player(player)
+            .and_then(|entity| gamepads.get(entity).ok());
+
+        if keyboard.pressed(player.keyboard_input().paddle_up)
+            || gamepad.is_some_and(|gpad| gpad.pressed(player.gamepad_input().paddle_up))
+        {
             transform.translation.y += Paddle::VELOCITY * time.delta_secs();
         }
-        if input.pressed(player.input_settings().move_paddle_down) {
+        if keyboard.pressed(player.keyboard_input().paddle_down)
+            || gamepad.is_some_and(|gpad| gpad.pressed(player.gamepad_input().paddle_down))
+        {
             transform.translation.y -= Paddle::VELOCITY * time.delta_secs();
         }
 

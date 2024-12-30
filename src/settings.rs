@@ -49,33 +49,55 @@ pub mod window {
 }
 
 pub mod input {
-    use bevy::input::keyboard::KeyCode;
+    use bevy::input::{gamepad::GamepadButton, keyboard::KeyCode};
 
     #[derive(PartialEq, Eq)]
-    pub struct PlayerInputSettings {
-        pub move_paddle_up: KeyCode,
-        pub move_paddle_down: KeyCode,
-        pub push_paddle_front: KeyCode,
+    pub struct KeyboardInputSettings {
+        pub paddle_up: KeyCode,
+        pub paddle_down: KeyCode,
     }
 
-    impl PlayerInputSettings {
+    impl KeyboardInputSettings {
         pub const fn new_main_settings() -> Self {
             Self {
-                move_paddle_up: KeyCode::KeyW,
-                move_paddle_down: KeyCode::KeyS,
-                push_paddle_front: KeyCode::Space,
+                paddle_up: KeyCode::KeyW,
+                paddle_down: KeyCode::KeyS,
             }
         }
 
         pub const fn new_second_settings() -> Self {
             Self {
-                move_paddle_up: KeyCode::ArrowUp,
-                move_paddle_down: KeyCode::ArrowDown,
-                push_paddle_front: KeyCode::ArrowLeft,
+                paddle_up: KeyCode::ArrowUp,
+                paddle_down: KeyCode::ArrowDown,
             }
         }
     }
 
-    pub const MAIN_PLAYER: PlayerInputSettings = PlayerInputSettings::new_main_settings();
-    pub const SECOND_PLAYER: PlayerInputSettings = PlayerInputSettings::new_second_settings();
+    #[derive(PartialEq, Eq)]
+    pub struct GamepadInputSettings {
+        pub paddle_up: GamepadButton,
+        pub paddle_down: GamepadButton,
+    }
+
+    impl GamepadInputSettings {
+        pub const fn default_settings() -> Self {
+            Self {
+                paddle_up: GamepadButton::DPadUp,
+                paddle_down: GamepadButton::DPadDown,
+            }
+        }
+    }
+
+    impl Default for GamepadInputSettings {
+        fn default() -> Self {
+            Self::default_settings()
+        }
+    }
+
+    pub const MAIN_PLAYER_KEYBOARD: KeyboardInputSettings =
+        KeyboardInputSettings::new_main_settings();
+    pub const SECOND_PLAYER_KEYBOARD: KeyboardInputSettings =
+        KeyboardInputSettings::new_second_settings();
+
+    pub const GAMEPAD_SETTINGS: GamepadInputSettings = GamepadInputSettings::default_settings();
 }
