@@ -29,7 +29,8 @@ pub fn plugin(app: &mut App) {
             spawn_players,
             spawn_ball,
             init_match,
-        ),
+        )
+            .chain(),
     );
     app.add_systems(
         OnExit(InGame),
@@ -44,12 +45,14 @@ pub fn plugin(app: &mut App) {
 
     app.add_systems(
         FixedUpdate,
-        (check_ball_leaved_arena, move_paddle, move_ball)
+        (move_paddle, move_ball, check_ball_leaved_arena)
+            .chain()
             .run_if(in_state(GameActiveState::Playing)),
     );
     app.add_systems(
         FixedUpdate,
         (reset_ball_after_point, register_score_point, init_match)
+            .chain()
             .run_if(in_state(GameActiveState::Playing).and(on_event::<PointMarked>)),
     );
 }

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use settings::camera::default_orthographic_projection;
+use settings::camera::orthographic_projection;
 
 mod game;
 mod settings;
@@ -42,5 +42,5 @@ pub fn devtools_plugin(app: &mut App) {
 }
 
 pub fn spawn_camera(mut commands: Commands) {
-    commands.spawn((Camera2d, default_orthographic_projection()));
+    commands.spawn((Camera2d, orthographic_projection()));
 }

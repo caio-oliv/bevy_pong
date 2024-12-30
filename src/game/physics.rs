@@ -1,3 +1,4 @@
+use core::fmt;
 use core::ops::{Deref, DerefMut};
 
 use bevy::{
@@ -13,7 +14,7 @@ use bevy::{
 #[require(Transform)]
 pub struct Collider;
 
-#[derive(Clone, Copy, PartialEq, Component)]
+#[derive(Clone, Copy, Component)]
 #[require(Transform)]
 pub struct LinearVelocity(pub Vec2);
 
@@ -33,17 +34,59 @@ impl DerefMut for LinearVelocity {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Collision {
-    Left,
-    Right,
-    Top,
-    Bottom,
+    Left = 1,
+    Right = 2,
+    Top = 3,
+    Bottom = 4,
 }
 
-pub fn resolve_ball_collision(collision: Collision, velocity: &mut LinearVelocity) {
+impl Collision {
+    pub const fn as_str(&self) -> &'static str {
+        match *self {
+            Self::Left => "left",
+            Self::Right => "right",
+            Self::Top => "top",
+            Self::Bottom => "bottom",
+        }
+    }
+
+    pub fn from_penetration(offset: Vec2) -> Self {
+        match offset.y.abs() > offset.x.abs() {
+            true => {
+                if offset.y > 0.0 {
+                    Self::Top
+                } else {
+                    Self::Bottom
+                }
+            }
+            false => {
+                if offset.x > 0.0 {
+                    Self::Right
+                } else {
+                    Self::Left
+                }
+            }
+        }
+    }
+}
+
+impl fmt::Display for Collision {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+pub fn resolve_ball_collision(
+    offset: Vec2,
+    transform: &mut Transform,
+    velocity: &mut LinearVelocity,
+) {
+    transform.translation += offset.extend(0.0);
+
     let mut reflect_x = false;
     let mut reflect_y = false;
 
-    match collision {
+    match Collision::from_penetration(offset) {
         Collision::Left => reflect_x = velocity.x > 0.0,
         Collision::Right => reflect_x = velocity.x < 0.0,
         Collision::Top => reflect_y = velocity.y < 0.0,
@@ -63,25 +106,13 @@ pub fn resolve_ball_collision(collision: Collision, velocity: &mut LinearVelocit
 
 // Returns `Some` if `ball` collides with `bounding_box`.
 // The returned `Collision` is the side of `bounding_box` that `ball` hit.
-pub fn ball_collision(ball: BoundingCircle, bounding_box: Aabb2d) -> Option<Collision> {
-    if !ball.intersects(&bounding_box) {
+pub fn ball_collision(ball: &BoundingCircle, bounding_box: &Aabb2d) -> Option<Vec2> {
+    if !ball.intersects(bounding_box) {
         return None;
     }
 
     let closest = bounding_box.closest_point(ball.center());
     let offset = ball.center() - closest;
 
-    let side = if offset.x.abs() > offset.y.abs() {
-        if offset.x < 0. {
-            Collision::Left
-        } else {
-            Collision::Right
-        }
-    } else if offset.y > 0. {
-        Collision::Top
-    } else {
-        Collision::Bottom
-    };
-
-    Some(side)
+    Some(offset)
 }

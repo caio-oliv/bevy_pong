@@ -13,7 +13,7 @@ pub mod camera {
     pub const ORTHOGRAPHIC_PROJECTION_SCALE: f32 = PHYSICS_LENGTH_UNIT / PIXEL_PER_METER;
     pub const DEFAULT_CAMERA_2D_SCALE: f32 = 10.0;
 
-    pub fn default_orthographic_projection() -> OrthographicProjection {
+    pub fn orthographic_projection() -> OrthographicProjection {
         OrthographicProjection {
             scale: ORTHOGRAPHIC_PROJECTION_SCALE * DEFAULT_CAMERA_2D_SCALE,
             ..OrthographicProjection::default_2d()

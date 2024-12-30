@@ -53,7 +53,7 @@ pub fn spawn_players(
 
     commands.spawn((
         Player::new_main(),
-        Paddle::default(),
+        Paddle,
         Mesh2d(app_meshs.quad()),
         MeshMaterial2d(material.clone()),
         Collider,
@@ -61,7 +61,7 @@ pub fn spawn_players(
     ));
     commands.spawn((
         Player::new_second(),
-        Paddle::default(),
+        Paddle,
         Mesh2d(app_meshs.quad()),
         MeshMaterial2d(material),
         Collider,
@@ -80,9 +80,8 @@ pub fn spawn_ball(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    // TODO: use a sprite to draw the ball
     let mesh = meshes.add(Ball::primitive());
-    let material = materials.add(Ball::DEFAULT_COLOR);
+    let material = materials.add(Ball::COLOR);
 
     commands.spawn((
         Ball,
@@ -126,16 +125,16 @@ pub fn start_match(
 }
 
 pub fn move_paddle(
-    mut paddles: Query<(&mut Transform, &Player, &Paddle)>,
+    mut paddles: Query<(&mut Transform, &Player), With<Paddle>>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time<Fixed>>,
 ) {
-    for (mut transform, player, paddle) in &mut paddles {
+    for (mut transform, player) in &mut paddles {
         if input.pressed(player.input_settings().move_paddle_up) {
-            transform.translation.y += paddle.velocity * time.delta_secs();
+            transform.translation.y += Paddle::VELOCITY * time.delta_secs();
         }
         if input.pressed(player.input_settings().move_paddle_down) {
-            transform.translation.y -= paddle.velocity * time.delta_secs();
+            transform.translation.y -= Paddle::VELOCITY * time.delta_secs();
         }
 
         transform.translation.y = transform
@@ -145,35 +144,41 @@ pub fn move_paddle(
     }
 }
 
+#[expect(clippy::type_complexity)]
 pub fn move_ball(
     ball: Single<(&mut Transform, &mut LinearVelocity), With<Ball>>,
-    colliders: Query<&Transform, (With<Collider>, Without<Ball>)>,
+    colliders: Query<(&Transform, Option<&Paddle>), (With<Collider>, Without<Ball>)>,
     time: Res<Time<Fixed>>,
 ) {
     let (mut transform, mut velocity) = ball.into_inner();
 
-    // TODO: increase ball velocity over time
     transform.translation += velocity.0.extend(0.0) * time.delta_secs();
+    velocity.0 *= Ball::ACCELERATION_PERCENT * time.delta_secs() + 1.0;
 
     let bounding_ball = Ball::bounding_circle(&transform);
 
-    for collider in &colliders {
-        // TODO: apply a random Y direction when the ball bounces in the paddle.
-
+    for (collider, paddle) in &colliders {
         let bounding_box = Aabb2d::new(
             collider.translation.truncate(),
             collider.scale.truncate() * 0.5,
         );
 
-        let collision = match ball_collision(bounding_ball, bounding_box) {
+        let offset = match ball_collision(&bounding_ball, &bounding_box) {
             None => continue,
-            Some(collision) => collision,
+            Some(offset) => offset,
         };
 
-        resolve_ball_collision(collision, &mut velocity);
+        resolve_ball_collision(offset, &mut transform, &mut velocity);
+
+        if paddle.is_some() {
+            // apply a random Y direction when the ball bounces off the paddle.
+            let start = f32::min(-velocity.x, velocity.x);
+            let end = -start;
+
+            velocity.y = rand::thread_rng().gen_range(start..end) * 0.8;
+        }
     }
 
-    Ball::correct_trajectory(&mut velocity);
     Ball::limit_velocity(&mut velocity);
 }
 

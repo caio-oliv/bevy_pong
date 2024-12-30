@@ -80,19 +80,16 @@ impl Wall {
     }
 }
 
-#[derive(Component)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, Component)]
 #[require(Transform, Visibility)]
-pub struct Paddle {
-    /// Paddle velocity
-    pub velocity: f32,
-}
+pub struct Paddle;
 
 impl Paddle {
     pub const Z_INDEX: f32 = 1.0;
 
     pub const LENGTH: f32 = 15.0;
     pub const EDGE_MARGIN: f32 = 1.5;
-    pub const DEFAULT_VELOCITY: f32 = 30.0;
+    pub const VELOCITY: f32 = 30.0;
 
     pub const COLOR: Color = Color::WHITE;
 
@@ -123,14 +120,6 @@ impl Paddle {
     }
 }
 
-impl Default for Paddle {
-    fn default() -> Self {
-        Self {
-            velocity: Self::DEFAULT_VELOCITY,
-        }
-    }
-}
-
 #[derive(Default, Component)]
 #[require(Transform, Visibility)]
 pub struct Ball;
@@ -140,14 +129,16 @@ impl Ball {
     pub const RADIUS: f32 = 0.5;
     pub const START_VELOCITY: f32 = 18.0;
     pub const MAX_SPEED: f32 = 120.0;
-    pub const DEFAULT_COLOR: Color = Color::WHITE;
+    pub const ACCELERATION_PERCENT: f32 = 0.05;
+    pub const COLOR: Color = Color::WHITE;
 
     pub const fn primitive() -> Circle {
         Circle::new(Self::RADIUS)
     }
 
     pub fn bounding_circle(transform: &Transform) -> BoundingCircle {
-        BoundingCircle::new(transform.translation.truncate(), Ball::RADIUS)
+        let scale = (transform.scale.x + transform.scale.y) * 0.5;
+        BoundingCircle::new(transform.translation.truncate(), Ball::RADIUS * scale)
     }
 
     pub const fn start_velocity_x(direction: ArenaDirection) -> f32 {
@@ -169,22 +160,11 @@ impl Ball {
         velocity.0.y = velocity.0.y.clamp(-Ball::MAX_SPEED, Ball::MAX_SPEED);
     }
 
-    /// Prevents the ball from bouncing up and down indefinitely.
-    pub fn correct_trajectory(velocity: &mut LinearVelocity) {
-        // Y velocity must not be greater than X, or else the ball
-        // will start bouncing up and down, and neither of the players
-        // will be able to touch the ball again.
-        if velocity.y.abs() * 1.20 >= velocity.x.abs() {
-            velocity.y *= 0.9; // decrease Y by 10%
-            velocity.x *= 1.1; // increase X by 10%
-        }
-    }
-
     pub const fn initial_transform() -> Transform {
         Transform::from_xyz(0.0, 0.0, Self::Z_INDEX).with_scale(Vec3::new(2.0, 2.0, 1.0))
     }
 
-    pub fn reset_initial_stationary_position(
+    pub const fn reset_initial_stationary_position(
         transform: &mut Transform,
         velocity: &mut LinearVelocity,
     ) {
