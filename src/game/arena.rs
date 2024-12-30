@@ -87,9 +87,9 @@ pub struct Paddle;
 impl Paddle {
     pub const Z_INDEX: f32 = 1.0;
 
-    pub const LENGTH: f32 = 15.0;
+    pub const LENGTH: f32 = 10.0;
     pub const EDGE_MARGIN: f32 = 1.5;
-    pub const VELOCITY: f32 = 30.0;
+    pub const VELOCITY: f32 = 50.0;
 
     pub const COLOR: Color = Color::WHITE;
 
