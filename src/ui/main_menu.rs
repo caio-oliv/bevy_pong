@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::game::{
     player::SecondPlayerType,
-    resource::SecondPlayer,
+    resource::{SecondPlayer, UserGamepad},
     state::{GameActiveState, GameState, InGame},
 };
 use crate::ui::component::{button, screen};
@@ -30,6 +30,10 @@ impl ChangePlayerButton {
         }
     }
 }
+
+#[derive(Default, Component)]
+#[require(Text)]
+pub struct ChangePlayerButtonText;
 
 #[derive(Default, Component)]
 #[require(Button)]
@@ -77,6 +81,7 @@ pub fn build_change_player_button(builder: &mut ChildBuilder<'_>, second_player:
             BackgroundColor(button::BG_COLOR),
         ))
         .with_child((
+            ChangePlayerButtonText,
             Text::new(ChangePlayerButton::get_text(second_player.opponent)),
             button::text_font(),
             TextColor(button::TEXT_COLOR),
@@ -102,21 +107,40 @@ pub fn despawn_main_menu(query: Single<Entity, With<MainMenu>>, mut commands: Co
     commands.entity(entity).despawn_recursive();
 }
 
-#[expect(clippy::type_complexity)]
 pub fn change_player_button(
-    button: Single<(&Interaction, &Children), (Changed<Interaction>, With<ChangePlayerButton>)>,
-    mut text_query: Query<&mut Text>,
+    button: Single<&Interaction, (Changed<Interaction>, With<ChangePlayerButton>)>,
+    button_text: Single<&mut Text, With<ChangePlayerButtonText>>,
     mut second_player: ResMut<SecondPlayer>,
 ) {
-    let (interaction, children) = button.into_inner();
+    let interaction = button.into_inner();
+    let mut text = button_text.into_inner();
 
     if *interaction == Interaction::Pressed {
         let new_opponent = second_player.opponent.change_opponent();
         second_player.opponent = new_opponent;
 
-        let mut text = text_query
-            .get_mut(children[0])
-            .expect("ChangePlayerButton must have a text as first children");
+        text.0 = ChangePlayerButton::get_text(new_opponent).to_string();
+    }
+}
+
+pub fn change_player_with_gamepad(
+    button_text: Single<&mut Text, With<ChangePlayerButtonText>>,
+    gamepads: Query<&Gamepad>,
+    user_gamepad: Res<UserGamepad>,
+    mut second_player: ResMut<SecondPlayer>,
+) {
+    let mut text = button_text.into_inner();
+
+    let gamepad = user_gamepad
+        .get_main()
+        .and_then(|entity| gamepads.get(entity).ok());
+
+    if gamepad.is_some_and(|gpad| {
+        gpad.any_just_pressed([GamepadButton::DPadLeft, GamepadButton::DPadRight])
+    }) {
+        let new_opponent = second_player.opponent.change_opponent();
+        second_player.opponent = new_opponent;
+
         text.0 = ChangePlayerButton::get_text(new_opponent).to_string();
     }
 }
@@ -128,6 +152,20 @@ pub fn play_button(
     let interaction = button.into_inner();
 
     if *interaction == Interaction::Pressed {
+        next_game_state.set(GameState::playing());
+    }
+}
+
+pub fn start_game_with_gamepad(
+    gamepads: Query<&Gamepad>,
+    user_gamepad: Res<UserGamepad>,
+    mut next_game_state: ResMut<NextState<GameState>>,
+) {
+    let gamepad = user_gamepad
+        .get_main()
+        .and_then(|entity| gamepads.get(entity).ok());
+
+    if gamepad.is_some_and(|gpad| gpad.just_pressed(GamepadButton::Start)) {
         next_game_state.set(GameState::playing());
     }
 }
@@ -155,6 +193,13 @@ pub fn plugin(app: &mut App) {
 
     app.add_systems(
         Update,
-        (change_player_button, play_button, exit_game_button).run_if(in_state(GameState::MainMenu)),
+        (
+            change_player_button,
+            change_player_with_gamepad,
+            play_button,
+            start_game_with_gamepad,
+            exit_game_button,
+        )
+            .run_if(in_state(GameState::MainMenu)),
     );
 }

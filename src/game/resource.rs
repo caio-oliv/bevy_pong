@@ -58,7 +58,7 @@ impl UserGamepad {
         }
     }
 
-    fn try_move_second_to_main(&mut self) -> bool {
+    const fn try_move_second_to_main(&mut self) -> bool {
         if self.second.is_some() {
             self.main = self.second;
             self.second = None;
