@@ -45,7 +45,12 @@ pub fn plugin(app: &mut App) {
 
     app.add_systems(
         FixedUpdate,
-        (move_paddle, move_ball, check_ball_leaved_arena)
+        (
+            move_paddle_by_player,
+            move_paddle_by_ai,
+            move_ball,
+            check_ball_leaved_arena,
+        )
             .chain()
             .run_if(in_state(GameActiveState::Playing)),
     );

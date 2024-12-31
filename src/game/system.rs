@@ -1,12 +1,12 @@
-use bevy::math::bounding::Aabb2d;
+use bevy::math::bounding::{Aabb2d, RayCast2d};
 use bevy::prelude::*;
 use rand::Rng;
 
 use super::{
-    arena::{Arena, ArenaDirection, Ball, Paddle, Wall},
+    arena::{Arena, ArenaDirection, Ball, Paddle, PaddleDirection, Wall},
     event::{GameDataUpdated, PointMarked},
     physics::{ball_collision, resolve_ball_collision, Collider, LinearVelocity},
-    player::{Player, PlayerSide, PlayerType},
+    player::{Player, PlayerAI, PlayerSide, PlayerType, SecondPlayerType},
     resource::{CommonMesh, GameActiveData, SecondPlayer, StartMatchTimer, UserGamepad},
 };
 
@@ -45,9 +45,10 @@ pub fn despawn_arena(arena: Single<Entity, With<Arena>>, mut commands: Commands)
 }
 
 pub fn spawn_players(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
     app_meshs: Res<CommonMesh>,
+    second_player: Res<SecondPlayer>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut commands: Commands,
 ) {
     let material = materials.add(Paddle::COLOR);
 
@@ -59,14 +60,26 @@ pub fn spawn_players(
         Collider,
         Paddle::new_main_transform(),
     ));
-    commands.spawn((
-        Player::new_second(),
-        Paddle,
-        Mesh2d(app_meshs.quad()),
-        MeshMaterial2d(material),
-        Collider,
-        Paddle::new_second_transform(),
-    ));
+
+    match second_player.opponent {
+        SecondPlayerType::Player => commands.spawn((
+            Player::new_second(),
+            Paddle,
+            Mesh2d(app_meshs.quad()),
+            MeshMaterial2d(material),
+            Collider,
+            Paddle::new_second_transform(),
+        )),
+        SecondPlayerType::AI => commands.spawn((
+            Player::new_second(),
+            PlayerAI,
+            Paddle,
+            Mesh2d(app_meshs.quad()),
+            MeshMaterial2d(material),
+            Collider,
+            Paddle::new_second_transform(),
+        )),
+    };
 }
 
 pub fn despawn_players(players: Query<Entity, With<Player>>, mut commands: Commands) {
@@ -124,8 +137,9 @@ pub fn start_match(
     }
 }
 
-pub fn move_paddle(
-    mut paddles: Query<(&mut Transform, &Player), With<Paddle>>,
+#[expect(clippy::type_complexity)]
+pub fn move_paddle_by_player(
+    mut paddles: Query<(&mut Transform, &Player), (With<Paddle>, Without<PlayerAI>)>,
     gamepads: Query<&Gamepad>,
     user_gamepad: Res<UserGamepad>,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -139,19 +153,118 @@ pub fn move_paddle(
         if keyboard.pressed(player.keyboard_input().paddle_up)
             || gamepad.is_some_and(|gpad| gpad.pressed(player.gamepad_input().paddle_up))
         {
-            transform.translation.y += Paddle::VELOCITY * time.delta_secs();
+            Paddle::move_vertically(PaddleDirection::Up, &mut transform, time.delta_secs());
         }
         if keyboard.pressed(player.keyboard_input().paddle_down)
             || gamepad.is_some_and(|gpad| gpad.pressed(player.gamepad_input().paddle_down))
         {
-            transform.translation.y -= Paddle::VELOCITY * time.delta_secs();
+            Paddle::move_vertically(PaddleDirection::Down, &mut transform, time.delta_secs());
         }
 
-        transform.translation.y = transform
-            .translation
-            .y
-            .clamp(Paddle::min_y_position(), Paddle::max_y_position());
+        Paddle::clamp_position(&mut transform);
     }
+}
+
+fn intelligent_paddle_ai_movement(
+    paddle: &mut Transform,
+    ball: &Transform,
+    ball_velocity: &LinearVelocity,
+    delta_time: f32,
+) {
+    // when the ball is on the side or going to the main player:
+    if Ball::current_arena_direction(ball) == ArenaDirection::Left
+        || Ball::moving_to_arena_direction(ball_velocity) == ArenaDirection::Left
+    {
+        // stay where we are
+        return;
+    }
+
+    // when the ball is on the side of the AI player:
+    // move paddle to the predicted position of the ball.
+
+    let arena_right_collider = Arena::right_collider();
+    let ball_direction = match Dir2::new(ball_velocity.0) {
+        Ok(dir) => dir,
+        _ => return,
+    };
+    let ray_cast = RayCast2d::new(ball.translation.truncate(), ball_direction, 100.0);
+    let x_distance = Arena::SIZE.x * 0.5 - ball.translation.x;
+
+    if let Some(move_distance) = ray_cast.aabb_intersection_at(&arena_right_collider) {
+        let delta_y = (move_distance * move_distance - x_distance * x_distance).sqrt();
+
+        let final_ball_position = if ball_direction.y > 0.0 {
+            ball.translation.y + delta_y
+        } else {
+            ball.translation.y - delta_y
+        };
+
+        if (final_ball_position - paddle.translation.y).abs() < Paddle::AI_DEADZONE {
+            // the paddle is already aligned with the final ball position.
+            return;
+        }
+
+        // move paddle to the ball position
+        if final_ball_position > paddle.translation.y {
+            Paddle::move_vertically(PaddleDirection::Up, paddle, delta_time);
+        } else if final_ball_position < paddle.translation.y {
+            Paddle::move_vertically(PaddleDirection::Down, paddle, delta_time);
+        }
+    }
+
+    Paddle::clamp_position(paddle);
+}
+
+#[expect(unused)]
+fn simple_paddle_ai_movement(
+    paddle: &mut Transform,
+    ball: &Transform,
+    ball_velocity: &LinearVelocity,
+    delta_time: f32,
+) {
+    // when the ball is on the side or going to the main player:
+    if Ball::current_arena_direction(ball) == ArenaDirection::Left
+        || Ball::moving_to_arena_direction(ball_velocity) == ArenaDirection::Left
+    {
+        // stay where we are
+        return;
+    }
+
+    // when the ball is on the side of the AI player:
+
+    let diff = (ball.translation.y - paddle.translation.y).abs();
+    if diff < Paddle::AI_DEADZONE {
+        // the paddle is already aligned with the ball.
+        return;
+    }
+
+    let smooth = (ball_velocity.y.abs() / diff).clamp(0.7, 1.0);
+
+    // move paddle to the ball position
+    if ball.translation.y > paddle.translation.y {
+        Paddle::move_vertically(PaddleDirection::Up, paddle, delta_time * smooth);
+    } else if ball.translation.y < paddle.translation.y {
+        Paddle::move_vertically(PaddleDirection::Down, paddle, delta_time * smooth);
+    }
+
+    Paddle::clamp_position(paddle);
+}
+
+#[expect(clippy::type_complexity)]
+pub fn move_paddle_by_ai(
+    ball: Single<(&Transform, &LinearVelocity), With<Ball>>,
+    paddles: Single<&mut Transform, (With<Paddle>, With<PlayerAI>, Without<Ball>)>,
+    time: Res<Time<Fixed>>,
+) {
+    let (ball_transform, ball_velocity) = ball.into_inner();
+    let mut paddle_transform = paddles.into_inner();
+
+    intelligent_paddle_ai_movement(
+        &mut paddle_transform,
+        ball_transform,
+        ball_velocity,
+        time.delta_secs(),
+    );
 }
 
 #[expect(clippy::type_complexity)]

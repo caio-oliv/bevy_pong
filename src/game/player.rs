@@ -90,6 +90,16 @@ impl SecondPlayerType {
             Self::AI => Self::Player,
         }
     }
+
+    #[expect(unused)]
+    pub fn is_player(&self) -> bool {
+        *self == Self::Player
+    }
+
+    #[expect(unused)]
+    pub fn is_ai(&self) -> bool {
+        *self == Self::AI
+    }
 }
 
 #[derive(Clone, Copy, Default, Component)]
@@ -126,3 +136,7 @@ impl Player {
         self.kind
     }
 }
+
+#[derive(Clone, Copy, PartialEq, Eq, Default, Component)]
+#[require(Player)]
+pub struct PlayerAI;
