@@ -165,7 +165,7 @@ pub fn move_paddle_by_player(
     }
 }
 
-fn intelligent_paddle_ai_movement(
+fn paddle_ai_movement(
     paddle: &mut Transform,
     ball: &Transform,
     ball_velocity: &LinearVelocity,
@@ -215,41 +215,6 @@ fn intelligent_paddle_ai_movement(
     Paddle::clamp_position(paddle);
 }
 
-#[expect(unused)]
-fn simple_paddle_ai_movement(
-    paddle: &mut Transform,
-    ball: &Transform,
-    ball_velocity: &LinearVelocity,
-    delta_time: f32,
-) {
-    // when the ball is on the side or going to the main player:
-    if Ball::current_arena_direction(ball) == ArenaDirection::Left
-        || Ball::moving_to_arena_direction(ball_velocity) == ArenaDirection::Left
-    {
-        // stay where we are
-        return;
-    }
-
-    // when the ball is on the side of the AI player:
-
-    let diff = (ball.translation.y - paddle.translation.y).abs();
-    if diff < Paddle::AI_DEADZONE {
-        // the paddle is already aligned with the ball.
-        return;
-    }
-
-    let smooth = (ball_velocity.y.abs() / diff).clamp(0.7, 1.0);
-
-    // move paddle to the ball position
-    if ball.translation.y > paddle.translation.y {
-        Paddle::move_vertically(PaddleDirection::Up, paddle, delta_time * smooth);
-    } else if ball.translation.y < paddle.translation.y {
-        Paddle::move_vertically(PaddleDirection::Down, paddle, delta_time * smooth);
-    }
-
-    Paddle::clamp_position(paddle);
-}
-
 #[expect(clippy::type_complexity)]
 pub fn move_paddle_by_ai(
     ball: Single<(&Transform, &LinearVelocity), With<Ball>>,
@@ -259,7 +224,7 @@ pub fn move_paddle_by_ai(
     let (ball_transform, ball_velocity) = ball.into_inner();
     let mut paddle_transform = paddles.into_inner();
 
-    intelligent_paddle_ai_movement(
+    paddle_ai_movement(
         &mut paddle_transform,
         ball_transform,
         ball_velocity,
@@ -276,7 +241,9 @@ pub fn move_ball(
     let (mut transform, mut velocity) = ball.into_inner();
 
     transform.translation += velocity.0.extend(0.0) * time.delta_secs();
+
     velocity.0 *= Ball::ACCELERATION_PERCENT * time.delta_secs() + 1.0;
+    Ball::limit_velocity(&mut velocity);
 
     let bounding_ball = Ball::bounding_circle(&transform);
 

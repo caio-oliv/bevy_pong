@@ -20,6 +20,14 @@ impl Arena {
 
     const COLLIDER_HALF_THICKNESS: f32 = 0.5;
 
+    #[expect(unused)]
+    pub fn left_collider() -> Aabb2d {
+        Aabb2d::new(
+            Vec2::new(-Arena::SIZE.x / 2.0 + -Self::COLLIDER_HALF_THICKNESS, 0.0),
+            Vec2::new(Self::COLLIDER_HALF_THICKNESS, Arena::SIZE.y),
+        )
+    }
+
     pub fn right_collider() -> Aabb2d {
         Aabb2d::new(
             Vec2::new(Arena::SIZE.x / 2.0 + Self::COLLIDER_HALF_THICKNESS, 0.0),
@@ -98,7 +106,8 @@ impl Paddle {
     pub const Z_INDEX: f32 = 1.0;
 
     pub const LENGTH: f32 = 10.0;
-    pub const EDGE_MARGIN: f32 = 1.5;
+    pub const THICKNESS: f32 = 1.2;
+    pub const EDGE_MARGIN: f32 = 2.0;
     pub const VELOCITY: f32 = 50.0;
     pub const AI_DEADZONE: f32 = 1.0;
 
@@ -106,20 +115,20 @@ impl Paddle {
 
     pub const fn new_main_transform() -> Transform {
         Transform::from_xyz(
-            -Arena::SIZE.x / 2.0 + Paddle::EDGE_MARGIN,
+            -Arena::SIZE.x / 2.0 + Self::EDGE_MARGIN + Self::THICKNESS,
             0.0,
             Self::Z_INDEX,
         )
-        .with_scale(Vec3::new(1.0, Self::LENGTH, 1.0))
+        .with_scale(Vec3::new(Self::THICKNESS, Self::LENGTH, 1.0))
     }
 
     pub const fn new_second_transform() -> Transform {
         Transform::from_xyz(
-            Arena::SIZE.x / 2.0 + -Paddle::EDGE_MARGIN,
+            Arena::SIZE.x / 2.0 + -Self::EDGE_MARGIN + -Self::THICKNESS,
             0.0,
             Self::Z_INDEX,
         )
-        .with_scale(Vec3::new(1.0, Self::LENGTH, 1.0))
+        .with_scale(Vec3::new(Self::THICKNESS, Self::LENGTH, 1.0))
     }
 
     pub const fn move_vertically(
@@ -129,10 +138,10 @@ impl Paddle {
     ) {
         match direction {
             PaddleDirection::Up => {
-                transform.translation.y += Paddle::VELOCITY * delta_time;
+                transform.translation.y += Self::VELOCITY * delta_time;
             }
             PaddleDirection::Down => {
-                transform.translation.y -= Paddle::VELOCITY * delta_time;
+                transform.translation.y -= Self::VELOCITY * delta_time;
             }
         };
     }

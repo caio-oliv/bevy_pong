@@ -32,6 +32,7 @@ fn app_plugin(app: &mut App) {
     #[cfg(feature = "devtools")]
     app.add_plugins(devtools_plugin);
 
+    app.insert_resource(Time::<Fixed>::from_hz(64.0));
     app.insert_resource(ClearColor(Color::BLACK));
     app.init_resource::<UserGamepad>();
 
