@@ -2,7 +2,7 @@
 
 This project is an implementation of the game [Pong](https://en.wikipedia.org/wiki/Pong) using the [Bevy game engine](https://bevyengine.org/).
 
-Checkout the [video demo](<TODO VIDEO URL HERE>).
+Checkout the [video demo](https://drive.google.com/file/d/1BbIq6TidEeadHtQTKV3GLQtoibuXkgoK/view).
 
 ## Features
 
