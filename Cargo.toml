@@ -6,6 +6,11 @@ edition = "2021"
 [profile.dev.package."*"]
 opt-level = 3
 
+[profile.release]
+lto = true
+strip = "debuginfo"
+panic = "abort"
+
 [features]
 default = ["devtools"]
 devtools = ["bevy/sysinfo_plugin", "bevy/bevy_dev_tools", "bevy/bevy_remote"]
@@ -18,7 +23,6 @@ features = [
 	"bevy_core_pipeline",
 	"bevy_gilrs",
 	"bevy_render",
-	"bevy_sprite",
 	"bevy_state",
 	"bevy_text",
 	"bevy_ui",

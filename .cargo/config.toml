@@ -1,0 +1,2 @@
+[target."*"]
+rustflags = ["-Z fmt-debug=none"]
